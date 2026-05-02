@@ -544,25 +544,33 @@ function horiz(RA,Dec,L,lat){
 }
 function moonAltAz(j,lat,lon){const m=moonPos(j),L=lst(j,lon),h=horiz(m.RA,m.Dec,L,lat);return{alt:h.alt+0.567,az:h.az};}
 function moonEvts(J0,lat,lon){
-  const st=720,sh=24/st;let pv=null,ev=[];
-  for(let i=0;i<=st;i++){
-    const j=J0+i*sh/24,{alt:ac,az}=moonAltAz(j,lat,lon);
-    if(pv){
+  // Ventana: 48h centradas en J0 (medianoche UTC del día local).
+  // Paso 2 min → 1440 pasos. Bisección 22 iter → precisión <0.1s.
+  const step=2/1440,nSteps=1440;
+  const jStart=J0-0.5; // 12h antes de medianoche = mediodía UTC del día anterior
+  let pv=null,rises=[],sets=[];
+  for(let i=0;i<=nSteps;i++){
+    const j=jStart+i*step,{alt:ac,az}=moonAltAz(j,lat,lon);
+    if(pv!==null){
       if(pv.a<0&&ac>=0){
-        let jLo=J0+(i-1)*sh/24,jHi=J0+i*sh/24;
-        for(let k=0;k<20;k++){const jM=(jLo+jHi)/2;moonAltAz(jM,lat,lon).alt<0?jLo=jM:jHi=jM;}
-        const jEx=(jLo+jHi)/2,{az:azEx}=moonAltAz(jEx,lat,lon);
-        ev.push({type:'rise',jd:jEx,az:azEx});
+        let lo=jStart+(i-1)*step,hi=j;
+        for(let k=0;k<22;k++){const m=(lo+hi)/2;moonAltAz(m,lat,lon).alt<0?lo=m:hi=m;}
+        const jEx=(lo+hi)/2,{az:azEx}=moonAltAz(jEx,lat,lon);
+        rises.push({jd:jEx,az:azEx});
       } else if(pv.a>=0&&ac<0){
-        let jLo=J0+(i-1)*sh/24,jHi=J0+i*sh/24;
-        for(let k=0;k<20;k++){const jM=(jLo+jHi)/2;moonAltAz(jM,lat,lon).alt>=0?jLo=jM:jHi=jM;}
-        const jEx=(jLo+jHi)/2,{az:azEx}=moonAltAz(jEx,lat,lon);
-        ev.push({type:'set',jd:jEx,az:azEx});
+        let lo=jStart+(i-1)*step,hi=j;
+        for(let k=0;k<22;k++){const m=(lo+hi)/2;moonAltAz(m,lat,lon).alt>=0?lo=m:hi=m;}
+        const jEx=(lo+hi)/2,{az:azEx}=moonAltAz(jEx,lat,lon);
+        sets.push({jd:jEx,az:azEx});
       }
     }
-    pv={a:ac,az};
+    pv={a:ac};
   }
-  return ev;
+  // Etiquetar con tipo para compatibilidad con el resto del código
+  return [
+    ...rises.map(e=>({...e,type:'rise'})),
+    ...sets.map(e=>({...e,type:'set'}))
+  ];
 }
 function moonHL(J,lon,RA,mH){const T=(J-2451545)/36525,L=mod360(280.46061837+360.98564736629*(J-2451545)+0.000387933*T*T+lon),H=((L-RA)%360+360)%360;return mH+(H>180?H-360:H)/15;}
 function hAng(h){return -Math.PI/2+((h-12)/24)*2*Math.PI}
@@ -648,10 +656,10 @@ function drawLunar(hS,rH,sH,mH,isDia,hMoon,mVis,beta,mRD,mSD){
   function azAng(az){return hAng(mH+12-az/360*24);}
   if(mRD&&mRD.az!==undefined){const a=azAng(mRD.az);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+rD*Math.cos(a),cy+rD*Math.sin(a));ctx.strokeStyle=c.mRise;ctx.lineWidth=1.5;ctx.lineCap='round';ctx.stroke();}
   if(mSD&&mSD.az!==undefined){const a=azAng(mSD.az);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+rD*Math.cos(a),cy+rD*Math.sin(a));ctx.strokeStyle=c.mRise;ctx.lineWidth=1.5;ctx.lineCap='round';ctx.stroke();}
-  const bc=Math.max(-5.1,Math.min(5.1,beta)),mLen=rD*(1+(bc/5.1)*0.10),aM=hAng(hMoon);
+  const bc=Math.max(-5.1,Math.min(5.1,beta)),mLen=rD*(1+(bc/5.1)*0.15),aM=hAng(hMoon);
   const tx=cx+mLen*Math.cos(aM),ty=cy+mLen*Math.sin(aM);
   ctx.save();ctx.globalAlpha=mVis?1:0.38;
-  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(tx,ty);ctx.strokeStyle=c.hM;ctx.lineWidth=2;ctx.lineCap='round';ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(tx,ty);ctx.strokeStyle=c.hM;ctx.lineWidth=2.8;ctx.lineCap='round';ctx.stroke();
   ctx.beginPath();ctx.arc(tx,ty,3,0,2*Math.PI);ctx.fillStyle=c.hM;ctx.fill();
   ctx.restore();
   const aSun=hAng(hS);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(rD*0.80)*Math.cos(aSun),cy+(rD*0.80)*Math.sin(aSun));ctx.strokeStyle=c.hS;ctx.lineWidth=3;ctx.lineCap='round';ctx.stroke();
@@ -919,8 +927,16 @@ function updateLunar(){
   const day=Math.floor(J-0.5);
   if(day!==LUN.lastDay){
     LUN.lastDay=day;LUN.midH=(rH+sH)/2;LUN.sunRise=sun.riseMs;LUN.sunSet=sun.setMs;
-    const J0=Math.floor(J-0.5)+0.5-0.25,ev=moonEvts(J0,LUN.lat,LUN.lon);
-    const r=ev.find(e=>e.type==='rise'),s=ev.find(e=>e.type==='set');
+    const J0=Math.floor(J+0.5)-0.5; // medianoche UTC del día local
+    const ev=moonEvts(J0,LUN.lat,LUN.lon);
+    const jMid=J0+(rH+sH)/(2*24); // mediodía solar en JD
+    // Seleccionar el rise y set más cercanos al mediodía solar del día
+    const closest=(arr,type)=>{
+      const f=arr.filter(e=>e.type===type);
+      if(!f.length)return null;
+      return f.reduce((a,b)=>Math.abs(a.jd-jMid)<Math.abs(b.jd-jMid)?a:b);
+    };
+    const r=closest(ev,'rise'),s=closest(ev,'set');
     LUN.mRD=r?{hL:msH(jdMs(r.jd)),ms:jdMs(r.jd),az:r.az}:null;
     LUN.mSD=s?{hL:msH(jdMs(s.jd)),ms:jdMs(s.jd),az:s.az}:null;
   }
