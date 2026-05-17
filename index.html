@@ -223,7 +223,7 @@ canvas{display:block}
     <div class="hora-central" id="lun-hora">—</div>
     <div class="pills-row" id="lun-pr3"></div>
   </div>
-  <canvas id="lun-cv" width="340" height="340"></canvas>
+  <canvas id="lun-cv" width="380" height="380"></canvas>
   <div class="grid">
     <div class="card">
       <div class="card-lbl">Elongación</div>
@@ -299,16 +299,12 @@ canvas{display:block}
       <span class="adj-lbl">Bloquear portrait</span>
       <button class="adj-toggle-btn" id="adj-portrait-btn">—</button>
     </div>
-    <div class="adj-row">
-      <span class="adj-lbl">Brújula (Lumina)</span>
-      <button class="adj-toggle-btn" id="adj-compass-btn">Desactivada</button>
-    </div>
   </div>
   <div class="adj-section">
     <div class="adj-title">Acerca de</div>
     <div class="adj-info">
       <div class="adj-info-row"><span class="adj-lbl">App</span><span class="adj-val">Polos</span></div>
-      <div class="adj-info-row"><span class="adj-lbl">Versión</span><span class="adj-val">0.3</span></div>
+      <div class="adj-info-row"><span class="adj-lbl">Versión</span><span class="adj-val">0.2</span></div>
       <div class="adj-info-row"><span class="adj-lbl">Motor</span><span class="adj-val">Jean Meeus, 1998</span></div>
     </div>
   </div>
@@ -359,7 +355,13 @@ canvas{display:block}
       <p>Marcan el azimut geográfico del orto y ocaso lunares. Referencia: N arriba, E a la derecha, S abajo, O a la izquierda — calculados por mediodía solar real.</p></div>
       <div class="sec"><div class="sec-t">Cardinales N · E · S · O</div>
       <p>Calculados a partir del mediodía solar real. En España con horario de verano cae ~14h. Los demás cardinales se derivan cada 6h.</p></div>
-      <div class="sec"><div class="sec-t">Cards</div><ul>
+      <div class="sec"><div class="sec-t">Planetas</div>
+      <p>Los ocho planetas y Plutón aparecen en el borde exterior de la esfera, en su posición horaria local (hora de tránsito). Se muestran con sus símbolos astronómicos clásicos:</p>
+      <p style="letter-spacing:.15em;font-size:15px;line-height:2.2;text-align:center">
+        ☿ Mercurio &nbsp; ♀ Venus &nbsp; ♂ Marte<br>
+        ♃ Júpiter &nbsp; ♄ Saturno<br>
+        ⛢ Urano &nbsp; ♆ Neptuno &nbsp; ♇ Plutón
+      </p></div>
         <li><b>Elongación</b> — ángulo geocéntrico Sol-Luna (coordenadas ecuatoriales).</li>
         <li><b>Fase e iluminación</b> — nombre de la fase y % iluminado.</li>
         <li><b>Latitud eclíptica β</b> — grados sobre (+) o bajo (−) la eclíptica.</li>
@@ -389,7 +391,7 @@ canvas{display:block}
       <p>Desliza izquierda/derecha para cambiar de reloj. También puedes tocar los puntos de abajo.</p></div>
     </div>
     <hr>
-    <p style="font-size:10px;color:var(--fg3);text-align:center">Lumina · Abril 2026</p>
+    <p style="font-size:10px;color:var(--fg3);text-align:center">Polos v0.3 · Mayo 2026</p>
   </div>
 </div>
 
@@ -543,12 +545,56 @@ function horiz(RA,Dec,L,lat){
   return{alt:asinD(sa),az:mod360(atan2D(-cosD(Dec)*sinD(H),cosD(lat)*sinD(Dec)-sinD(lat)*cosD(Dec)*cosD(H)))};
 }
 function moonAltAz(j,lat,lon){const m=moonPos(j),L=lst(j,lon),h=horiz(m.RA,m.Dec,L,lat);return{alt:h.alt+0.567,az:h.az};}
+
+// ══════════════════════════════════════════════════════════
+//  PLANETAS — VSOP87 truncado (Meeus cap. 33)
+// ══════════════════════════════════════════════════════════
+// Devuelve {RA, Dec} geocéntrico (grados) para cada planeta.
+// Precisión ~1° suficiente para representación visual en la esfera.
+// Longitud eclíptica geocéntrica del planeta (0-360°)
+function planetEclLon(J){
+  const T=(J-2451545)/36525;
+  const planets=[
+    {n:'Mercurio',s:'☿',L0:252.2509,r:149472.6746,a:0.38710,e:0.20563,i:7.005,Om:48.331,w:77.456},
+    {n:'Venus',   s:'♀',L0:181.9798,r:58517.8157, a:0.72333,e:0.00677,i:3.395,Om:76.680,w:131.564},
+    {n:'Marte',   s:'♂',L0:355.4330,r:19140.2993, a:1.52366,e:0.09341,i:1.850,Om:49.558,w:336.060},
+    {n:'Júpiter', s:'♃',L0:34.3515, r:3034.9057,  a:5.20260,e:0.04849,i:1.303,Om:100.464,w:14.331},
+    {n:'Saturno', s:'♄',L0:50.0774, r:1222.1138,  a:9.55491,e:0.05551,i:2.489,Om:113.666,w:93.057},
+    {n:'Urano',   s:'⛢',L0:314.0550,r:428.4120,   a:19.2184,e:0.04630,i:0.773,Om:74.006, w:173.005},
+    {n:'Neptuno', s:'♆',L0:304.3487,r:218.4862,   a:30.0700,e:0.00899,i:1.770,Om:131.784,w:48.120},
+    {n:'Plutón',  s:'♇',L0:238.9290,r:145.2078,   a:39.4817,e:0.24882,i:17.14,Om:110.299,w:224.068},
+  ];
+  // Tierra
+  const Le=mod360(100.4664+36000.7698*T),Me=mod360(357.5291+35999.0503*T);
+  const Ce=(1.9146-0.004817*T)*sinD(Me)+0.01998*sinD(2*Me);
+  const lTe=mod360(Le+Ce);
+  const rE=1.000001018*(1-0.01671*0.01671)/(1+0.016711*cosD(Me));
+  const xE=rE*cosD(lTe),yE=rE*sinD(lTe);
+
+  return planets.map(p=>{
+    const Lp=mod360(p.L0+p.r*T);
+    const Mp=mod360(Lp-p.w);
+    const Cp=(2*p.e-p.e*p.e*p.e/4)*sinD(Mp)+(5/4)*p.e*p.e*sinD(2*Mp);
+    const vp=mod360(Mp+Cp*(180/Math.PI));
+    const rp=p.a*(1-p.e*p.e)/(1+p.e*cosD(vp));
+    const uLon=mod360(vp+p.w);
+    // Heliocéntrico eclíptico (plano de la eclíptica, ignorar latitud para longitud)
+    const xh=rp*(cosD(p.Om)*cosD(uLon-p.Om)-sinD(p.Om)*sinD(uLon-p.Om)*cosD(p.i));
+    const yh=rp*(sinD(p.Om)*cosD(uLon-p.Om)+cosD(p.Om)*sinD(uLon-p.Om)*cosD(p.i));
+    // Geocéntrico → longitud eclíptica
+    const xg=xh-xE,yg=yh-yE;
+    const lon=mod360(atan2D(yg,xg));
+    return{n:p.n,s:p.s,lon};
+  });
+}
+
+
 function moonEvts(J0,lat,lon){
-  // Ventana: 48h centradas en J0 (medianoche UTC del día local).
-  // Paso 2 min → 1440 pasos. Bisección 22 iter → precisión <0.1s.
+  // Ventana 48h: desde J0-0.5 (mediodía UTC día anterior) hasta J0+1.5 (mediodía UTC día siguiente)
+  // Paso 2 min → 1440 pasos. Garantiza capturar cualquier orto/ocaso del día local.
   const step=2/1440,nSteps=1440;
-  const jStart=J0-0.5; // 12h antes de medianoche = mediodía UTC del día anterior
-  let pv=null,rises=[],sets=[];
+  const jStart=J0-0.5;
+  let pv=null,ev=[];
   for(let i=0;i<=nSteps;i++){
     const j=jStart+i*step,{alt:ac,az}=moonAltAz(j,lat,lon);
     if(pv!==null){
@@ -556,21 +602,17 @@ function moonEvts(J0,lat,lon){
         let lo=jStart+(i-1)*step,hi=j;
         for(let k=0;k<22;k++){const m=(lo+hi)/2;moonAltAz(m,lat,lon).alt<0?lo=m:hi=m;}
         const jEx=(lo+hi)/2,{az:azEx}=moonAltAz(jEx,lat,lon);
-        rises.push({jd:jEx,az:azEx});
+        ev.push({type:'rise',jd:jEx,az:azEx});
       } else if(pv.a>=0&&ac<0){
         let lo=jStart+(i-1)*step,hi=j;
         for(let k=0;k<22;k++){const m=(lo+hi)/2;moonAltAz(m,lat,lon).alt>=0?lo=m:hi=m;}
         const jEx=(lo+hi)/2,{az:azEx}=moonAltAz(jEx,lat,lon);
-        sets.push({jd:jEx,az:azEx});
+        ev.push({type:'set',jd:jEx,az:azEx});
       }
     }
     pv={a:ac};
   }
-  // Etiquetar con tipo para compatibilidad con el resto del código
-  return [
-    ...rises.map(e=>({...e,type:'rise'})),
-    ...sets.map(e=>({...e,type:'set'}))
-  ];
+  return ev;
 }
 function moonHL(J,lon,RA,mH){const T=(J-2451545)/36525,L=mod360(280.46061837+360.98564736629*(J-2451545)+0.000387933*T*T+lon),H=((L-RA)%360+360)%360;return mH+(H>180?H-360:H)/15;}
 function hAng(h){return -Math.PI/2+((h-12)/24)*2*Math.PI}
@@ -618,8 +660,8 @@ function getC(){
 // ══════════════════════════════════════════════════════════
 function drawLunar(hS,rH,sH,mH,isDia,hMoon,mVis,beta,mRD,mSD){
   const cv=document.getElementById('lun-cv'),ctx=cv.getContext('2d');
-  const cx=170,cy=170,rD=152,rN=135,rL=104,c=getC();
-  ctx.clearRect(0,0,340,340);
+  const cx=190,cy=190,rD=152,rN=135,rL=104,c=getC();
+  ctx.clearRect(0,0,380,380);
   const aR=hAng(rH),aS=hAng(sH);
   ctx.beginPath();ctx.arc(cx,cy,rD,0,2*Math.PI);ctx.fillStyle=c.bg;ctx.fill();
   ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,rD,aR,aS,false);ctx.closePath();ctx.fillStyle=c.df;ctx.fill();
@@ -632,10 +674,15 @@ function drawLunar(hS,rH,sH,mH,isDia,hMoon,mVis,beta,mRD,mSD){
   ctx.font='300 11px Raleway,sans-serif';
   ctx.fillStyle=c.nD;ctx.fillText('día',cx+rL*0.5*Math.cos(hAng(mH)),cy+rL*0.5*Math.sin(hAng(mH)));
   ctx.fillStyle=c.nN;ctx.fillText('noche',cx+rL*0.5*Math.cos(hAng(mH+12)),cy+rL*0.5*Math.sin(hAng(mH+12)));
-  [{l:'S',h:mH,col:c.cS},{l:'O',h:mH+6,col:c.cEO},{l:'N',h:mH+12,col:c.cN},{l:'E',h:mH-6,col:c.cEO}].forEach(({l,h,col})=>{
-    const an=hAng(h),mx=cx+(rD+4)*Math.cos(an),my=cy+(rD+4)*Math.sin(an);
-    ctx.save();ctx.translate(mx,my);ctx.rotate(an+Math.PI/2);ctx.beginPath();ctx.moveTo(0,-4);ctx.lineTo(3,0);ctx.lineTo(0,4);ctx.lineTo(-3,0);ctx.closePath();ctx.fillStyle=col;ctx.fill();ctx.restore();
-    ctx.font='500 10px Raleway,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=col;ctx.fillText(l,cx+(rD+16)*Math.cos(an),cy+(rD+16)*Math.sin(an));
+  const dk=!document.documentElement.classList.contains('light');
+  [{l:'S',h:mH},{l:'O',h:mH+6},{l:'N',h:mH+12},{l:'E',h:mH-6}].forEach(({l,h})=>{
+    const an=hAng(h),mx=cx+(rD+18)*Math.cos(an),my=cy+(rD+18)*Math.sin(an);
+    const bw=16,bh=16,br=4;
+    ctx.beginPath();ctx.roundRect(mx-bw/2,my-bh/2,bw,bh,br);
+    ctx.fillStyle=dk?'rgba(200,160,30,0.15)':'rgba(150,110,10,0.12)';ctx.fill();
+    ctx.strokeStyle=dk?'rgba(200,160,30,0.35)':'rgba(150,110,10,0.30)';ctx.lineWidth=0.5;ctx.stroke();
+    ctx.font='500 12px Raleway,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=c.cS;ctx.fillText(l,mx,my);
   });
   // Radios solares (orto/ocaso) — amarillo tenue
   if(rH!==undefined){const a=hAng(rH);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+rD*Math.cos(a),cy+rD*Math.sin(a));ctx.strokeStyle=c.solRad;ctx.lineWidth=1.2;ctx.lineCap='round';ctx.stroke();}
@@ -656,40 +703,48 @@ function drawLunar(hS,rH,sH,mH,isDia,hMoon,mVis,beta,mRD,mSD){
   function azAng(az){return hAng(mH+12-az/360*24);}
   if(mRD&&mRD.az!==undefined){const a=azAng(mRD.az);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+rD*Math.cos(a),cy+rD*Math.sin(a));ctx.strokeStyle=c.mRise;ctx.lineWidth=1.5;ctx.lineCap='round';ctx.stroke();}
   if(mSD&&mSD.az!==undefined){const a=azAng(mSD.az);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+rD*Math.cos(a),cy+rD*Math.sin(a));ctx.strokeStyle=c.mRise;ctx.lineWidth=1.5;ctx.lineCap='round';ctx.stroke();}
-  const bc=Math.max(-5.1,Math.min(5.1,beta)),mLen=rD*(1+(bc/5.1)*0.15),aM=hAng(hMoon);
+  const bc=Math.max(-5.1,Math.min(5.1,beta)),mLen=rD*(1+(bc/5.1)*0.08),aM=hAng(hMoon);
   const tx=cx+mLen*Math.cos(aM),ty=cy+mLen*Math.sin(aM);
   ctx.save();ctx.globalAlpha=mVis?1:0.38;
-  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(tx,ty);ctx.strokeStyle=c.hM;ctx.lineWidth=2.8;ctx.lineCap='round';ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(tx,ty);ctx.strokeStyle=c.hM;ctx.lineWidth=2;ctx.lineCap='round';ctx.stroke();
   ctx.beginPath();ctx.arc(tx,ty,3,0,2*Math.PI);ctx.fillStyle=c.hM;ctx.fill();
   ctx.restore();
   const aSun=hAng(hS);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(rD*0.80)*Math.cos(aSun),cy+(rD*0.80)*Math.sin(aSun));ctx.strokeStyle=c.hS;ctx.lineWidth=3;ctx.lineCap='round';ctx.stroke();
   if(isDia){ctx.beginPath();ctx.arc(cx,cy,6,0,2*Math.PI);ctx.fillStyle='#e8b820';ctx.fill();for(let i=0;i<8;i++){const a=(i/8)*2*Math.PI;ctx.beginPath();ctx.moveTo(cx+9*Math.cos(a),cy+9*Math.sin(a));ctx.lineTo(cx+13*Math.cos(a),cy+13*Math.sin(a));ctx.strokeStyle='#e8b820';ctx.lineWidth=2;ctx.stroke();}}
   else{ctx.beginPath();ctx.arc(cx,cy,7,0,2*Math.PI);ctx.fillStyle=c.mc;ctx.fill();ctx.beginPath();ctx.arc(cx+3,cy-2.5,5.5,0,2*Math.PI);ctx.fillStyle=c.bgc;ctx.fill();}
-  // ── Punto Sur brújula (TP-13) ──────────────────────────
-  // heading = grados desde Norte magnético. Sur magnético = heading + 180.
-  // En la esfera el Sur solar está en hAng(mH). El punto se coloca en la
-  // corona exterior (rD+10) en la posición azimutal correspondiente al Sur magnético.
-  // azimut 0=N → posición hAng(mH+12); azimut 180=S → posición hAng(mH).
-  if(COMPASS.active && COMPASS.heading!=null){
-    // heading = azimut del Norte magnético.
-    // Queremos el Sur: Norte + 180. azAng mapea azimut→ángulo esfera
-    // donde azimut 180 (Sur) cae exactamente en hAng(mH) = cardinal S solar.
-    const surMag=COMPASS.heading; // heading ES el Norte → surMag apunta al Sur opuesto
-    const aSur=hAng(mH+12-surMag/360*24);
-    const rPunto=rD+10;
-    const px=cx+rPunto*Math.cos(aSur),py=cy+rPunto*Math.sin(aSur);
-    const dk=!document.documentElement.classList.contains('light');
-    // Halo tenue
-    ctx.beginPath();ctx.arc(px,py,7,0,2*Math.PI);
-    ctx.fillStyle=dk?'rgba(128,128,208,0.18)':'rgba(80,80,176,0.15)';ctx.fill();
-    // Punto principal
-    ctx.beginPath();ctx.arc(px,py,4,0,2*Math.PI);
-    ctx.fillStyle=dk?'#8080d0':'#5050b0';ctx.fill();
-    // Letra S pequeña
-    ctx.font='500 8px Raleway,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillStyle=dk?'#e8e4d8':'#2a2418';
-    ctx.fillText('S',cx+(rD+24)*Math.cos(aSur),cy+(rD+24)*Math.sin(aSur));
-  }
+  ctx.beginPath();ctx.arc(cx,cy,3.5,0,2*Math.PI);ctx.fillStyle=c.hM;ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,2,0,2*Math.PI);ctx.fillStyle=c.hS;ctx.fill();
+
+  // ── Planetas en el borde exterior ──────────────────────
+  const J=jdNow(),pls=planetEclLon(J);
+  const plAngs=pls.map(p=>({...p,a:azAng(p.lon)}));
+  const rSym=rD+20,minSep=15;
+  const placed=[];
+  plAngs.forEach(p=>{
+    let a=p.a,r=rSym;
+    for(let iter=0;iter<16;iter++){
+      const px=cx+r*Math.cos(a),py=cy+r*Math.sin(a);
+      const clash=placed.find(q=>{const dx=px-q.x,dy=py-q.y;return Math.sqrt(dx*dx+dy*dy)<minSep;});
+      if(!clash)break;
+      // Alternar: par→angular, impar→radial
+      if(iter%2===0){
+        const da=Math.sign(Math.sin(a-clash.a||0.01));
+        a+=da*minSep/r;
+      } else {
+        r+=minSep*0.6;
+      }
+    }
+    placed.push({x:cx+r*Math.cos(a),y:cy+r*Math.sin(a),a,r,s:p.s,oa:p.a});
+  });
+  placed.forEach(p=>{
+    const r0=rD+1,r1=rD+5;
+    ctx.beginPath();ctx.moveTo(cx+r0*Math.cos(p.oa),cy+r0*Math.sin(p.oa));
+    ctx.lineTo(cx+r1*Math.cos(p.oa),cy+r1*Math.sin(p.oa));
+    ctx.strokeStyle='rgba(210,120,40,0.65)';ctx.lineWidth=1;ctx.lineCap='butt';ctx.stroke();
+    ctx.font='500 13px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=dk?'rgba(200,190,160,0.82)':'rgba(90,80,60,0.82)';
+    ctx.fillText(p.s,p.x,p.y);
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -796,93 +851,19 @@ function lunarMonthDay(JD){
     if(jd<=JD){jdPrev=jd;break;}
   }
   if(!jdPrev) jdPrev=findNewMoon(2451550.09765+(k0-1)*LUNATION);
-  // Luna nueva siguiente
-  const jdNext=findNewMoon(2451550.09765+(k0+1)*LUNATION);
-  const duracion=Math.round(jdNext-jdPrev); // 29 o 30
+  // Luna nueva siguiente a jdPrev — buscar la primera que sea > jdPrev
+  let jdNext=null;
+  for(let k=k0-1;k<=k0+2;k++){
+    const jd=findNewMoon(2451550.09765+k*LUNATION);
+    if(jd>jdPrev){jdNext=jd;break;}
+  }
+  const duracion=Math.round(jdNext-jdPrev); // siempre 29 o 30
   // Comparar medianoche UTC de la LN con medianoche UTC de hoy
   // así el día cambia a las 00:00 UTC y no depende de la hora de la LN
   const jdPrevMidnight=Math.floor(jdPrev-0.5)+0.5;
   const jdNowMidnight=Math.floor(JD-0.5)+0.5;
   const dia=Math.round(jdNowMidnight-jdPrevMidnight); // 0=día de LN, 1=día siguiente…
   return{dia:Math.max(1,Math.min(dia,duracion)),duracion};
-}
-
-// ══════════════════════════════════════════════════════════
-//  BRÚJULA (TP-13 · TP-15 · TP-16 · TP-17)
-// ══════════════════════════════════════════════════════════
-const COMPASS={
-  active:false,      // brújula funcionando
-  heading:null,      // grados desde el Norte magnético (0-360), null = sin datos
-  supported:true,    // false si el dispositivo no tiene magnetómetro
-};
-
-function compassHeadingFromEvent(e){
-  // webkitCompassHeading (iOS) es directo, grados desde norte, 0-360
-  if(e.webkitCompassHeading!=null) return e.webkitCompassHeading;
-  // alpha (Android, etc.) — ángulo de rotación Z, hay que convertir
-  // alpha=0 significa que el dispositivo apunta al norte
-  if(e.alpha!=null) return (360-e.alpha)%360;
-  return null;
-}
-
-function startCompass(){
-  // iOS 13+ requiere permiso explícito
-  if(typeof DeviceOrientationEvent!=='undefined' &&
-     typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission()
-      .then(state=>{
-        if(state==='granted'){
-          window.addEventListener('deviceorientation',onOrientation,true);
-          COMPASS.active=true;
-          syncCompassBtn();
-        } else {
-          COMPASS.supported=false;
-          syncCompassBtn();
-        }
-      })
-      .catch(()=>{COMPASS.supported=false;syncCompassBtn();});
-  } else if(typeof DeviceOrientationEvent!=='undefined'){
-    // Android / escritorio: no requiere permiso
-    window.addEventListener('deviceorientation',onOrientation,true);
-    COMPASS.active=true;
-    syncCompassBtn();
-  } else {
-    // Dispositivo sin soporte (TP-17)
-    COMPASS.supported=false;
-    syncCompassBtn();
-  }
-}
-
-function stopCompass(){
-  window.removeEventListener('deviceorientation',onOrientation,true);
-  COMPASS.active=false;
-  COMPASS.heading=null;
-  syncCompassBtn();
-}
-
-let _compassWatchdog=null;
-function onOrientation(e){
-  const h=compassHeadingFromEvent(e);
-  if(h==null){
-    // Evento llega pero sin datos — magnetómetro ausente (TP-17)
-    if(_compassWatchdog===null){
-      _compassWatchdog=setTimeout(()=>{
-        if(COMPASS.heading===null){COMPASS.supported=false;stopCompass();syncCompassBtn();}
-        _compassWatchdog=null;
-      },3000);
-    }
-    return;
-  }
-  if(_compassWatchdog){clearTimeout(_compassWatchdog);_compassWatchdog=null;}
-  COMPASS.heading=h;
-}
-
-function syncCompassBtn(){
-  const btn=document.getElementById('adj-compass-btn');
-  if(!btn)return;
-  if(!COMPASS.supported){btn.textContent='No disponible';btn.disabled=true;return;}
-  btn.disabled=false;
-  btn.textContent=COMPASS.active?'Activa':'Desactivada';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -930,13 +911,12 @@ function updateLunar(){
     const J0=Math.floor(J+0.5)-0.5; // medianoche UTC del día local
     const ev=moonEvts(J0,LUN.lat,LUN.lon);
     const jMid=J0+(rH+sH)/(2*24); // mediodía solar en JD
-    // Seleccionar el rise y set más cercanos al mediodía solar del día
-    const closest=(arr,type)=>{
-      const f=arr.filter(e=>e.type===type);
+    const closest=(type)=>{
+      const f=ev.filter(e=>e.type===type);
       if(!f.length)return null;
       return f.reduce((a,b)=>Math.abs(a.jd-jMid)<Math.abs(b.jd-jMid)?a:b);
     };
-    const r=closest(ev,'rise'),s=closest(ev,'set');
+    const r=closest('rise'),s=closest('set');
     LUN.mRD=r?{hL:msH(jdMs(r.jd)),ms:jdMs(r.jd),az:r.az}:null;
     LUN.mSD=s?{hL:msH(jdMs(s.jd)),ms:jdMs(s.jd),az:s.az}:null;
   }
@@ -1065,13 +1045,6 @@ function updateHorae(){
     if(on&&screen.orientation&&screen.orientation.lock) screen.orientation.lock('portrait').catch(()=>{});
     syncPortraitBtn();
   });
-  // Botón brújula (TP-13/15/16/17)
-  const adjCompass=document.getElementById('adj-compass-btn');
-  adjCompass.addEventListener('click',()=>{
-    if(!COMPASS.supported){return;}
-    if(COMPASS.active) stopCompass();
-    else startCompass();
-  });
 })();
 
 // ── Estado y saved list unificados ────────────────────────
@@ -1119,10 +1092,6 @@ updateLunar();updateHorae();
   sp.addEventListener("click",dismiss);
   setTimeout(dismiss,3000);
 })();
-setInterval(()=>{
-  // Con brújula activa refrescar Lumina a 1s para que el punto se mueva suavemente
-  if(COMPASS.active) updateLunar();
-},1000);
 setInterval(updateLunar,5000);
 setInterval(updateHorae,1000);  // Horae necesita resolución de 1s para la aguja
 </script>
