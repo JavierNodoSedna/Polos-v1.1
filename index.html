@@ -205,7 +205,7 @@ canvas{display:block}
   <div class="splash-dot"></div>
 </div>
 <div class="app-header">
-  <button class="btn-help" id="btn-help">?</button>
+  <button class="btn-help" id="btn-help">i</button>
   <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
     <div class="app-title" id="app-title">LUMINA</div>
     <div class="app-sub" id="app-sub" style="font-size:10px;color:var(--fg3);letter-spacing:.06em">—</div>
@@ -345,23 +345,25 @@ canvas{display:block}
       <p>Circunferencia de 24 horas. Las 12h arriba, las 0h abajo. Sector claro = luz solar, sector oscuro = noche.</p></div>
       <div class="sec"><div class="sec-t">Manecillas</div><ul>
         <li><b>Ámbar (corta)</b> — posición horaria del Sol. Una vuelta = 24h.</li>
-        <li><b>Índigo (larga)</b> — posición de la Luna. Su longitud varía con la latitud eclíptica β: sobresale del borde si β &gt; 0 (norte), queda dentro si β &lt; 0 (sur). ±5.1° = ±10% del radio.</li>
+        <li><b>Índigo (larga)</b> — posición de la Luna. Su longitud varía con la latitud eclíptica β: sobresale del borde si β &gt; 0 (norte), queda dentro si β &lt; 0 (sur). ±5.1° = ±8% del radio.</li>
       </ul></div>
       <div class="sec"><div class="sec-t">Radios amarillos</div>
       <p>Marcan la hora del orto y ocaso solares.</p></div>
       <div class="sec"><div class="sec-t">Radios verdes (oR. · oC.)</div>
       <p>Marcan la hora del orto (oR.) y ocaso (oC.) lunares de hoy.</p></div>
       <div class="sec"><div class="sec-t">Radios azules</div>
-      <p>Marcan el azimut geográfico del orto y ocaso lunares. Referencia: N arriba, E a la derecha, S abajo, O a la izquierda — calculados por mediodía solar real.</p></div>
+      <p>Marcan el azimut geográfico del orto y ocaso lunares. N arriba, E derecha, S abajo, O izquierda — referenciados al mediodía solar real.</p></div>
       <div class="sec"><div class="sec-t">Cardinales N · E · S · O</div>
       <p>Calculados a partir del mediodía solar real. En España con horario de verano cae ~14h. Los demás cardinales se derivan cada 6h.</p></div>
       <div class="sec"><div class="sec-t">Planetas</div>
-      <p>Los ocho planetas y Plutón aparecen en el borde exterior de la esfera, en su posición horaria local (hora de tránsito). Se muestran con sus símbolos astronómicos clásicos:</p>
-      <p style="letter-spacing:.15em;font-size:15px;line-height:2.2;text-align:center">
-        ☿ Mercurio &nbsp; ♀ Venus &nbsp; ♂ Marte<br>
-        ♃ Júpiter &nbsp; ♄ Saturno<br>
-        ⛢ Urano &nbsp; ♆ Neptuno &nbsp; ♇ Plutón
-      </p></div>
+      <p>Los ocho planetas y Plutón aparecen en el borde exterior de la esfera según su <b>elongación eclíptica respecto al Sol</b>. Un planeta en conjunción (0°) aparece junto a la manecilla solar; en oposición (180°) en el lado opuesto. Se muestran con sus símbolos astronómicos clásicos:</p>
+      <p style="letter-spacing:.12em;font-size:14px;line-height:2.4;text-align:center">
+        ☿ Mercurio · ♀ Venus · ♂ Marte<br>
+        ♃ Júpiter · ♄ Saturno<br>
+        ⛢ Urano · ♆ Neptuno · ♇ Plutón
+      </p>
+      <p>El tick naranja en el borde marca la posición exacta; el símbolo puede desplazarse ligeramente para evitar solapamientos.</p></div>
+      <div class="sec"><div class="sec-t">Cards inferiores</div><ul>
         <li><b>Elongación</b> — ángulo geocéntrico Sol-Luna (coordenadas ecuatoriales).</li>
         <li><b>Fase e iluminación</b> — nombre de la fase y % iluminado.</li>
         <li><b>Latitud eclíptica β</b> — grados sobre (+) o bajo (−) la eclíptica.</li>
@@ -677,11 +679,11 @@ function drawLunar(hS,rH,sH,mH,isDia,hMoon,mVis,beta,mRD,mSD){
   const dk=!document.documentElement.classList.contains('light');
   [{l:'S',h:mH},{l:'O',h:mH+6},{l:'N',h:mH+12},{l:'E',h:mH-6}].forEach(({l,h})=>{
     const an=hAng(h),mx=cx+(rD+18)*Math.cos(an),my=cy+(rD+18)*Math.sin(an);
-    const bw=16,bh=16,br=4;
+    const bw=18,bh=18,br=4;
     ctx.beginPath();ctx.roundRect(mx-bw/2,my-bh/2,bw,bh,br);
     ctx.fillStyle=dk?'rgba(200,160,30,0.15)':'rgba(150,110,10,0.12)';ctx.fill();
     ctx.strokeStyle=dk?'rgba(200,160,30,0.35)':'rgba(150,110,10,0.30)';ctx.lineWidth=0.5;ctx.stroke();
-    ctx.font='500 12px Raleway,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='500 13px Raleway,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillStyle=c.cS;ctx.fillText(l,mx,my);
   });
   // Radios solares (orto/ocaso) — amarillo tenue
@@ -717,7 +719,11 @@ function drawLunar(hS,rH,sH,mH,isDia,hMoon,mVis,beta,mRD,mSD){
 
   // ── Planetas en el borde exterior ──────────────────────
   const J=jdNow(),pls=planetEclLon(J);
-  const plAngs=pls.map(p=>({...p,a:azAng(p.lon)}));
+  const lonSol=sunPos(J).lon; // longitud eclíptica geocéntrica del Sol
+  const plAngs=pls.map(p=>({
+    ...p,
+    a:hAng(hS - mod360(p.lon-lonSol)/360*24) // elongación → horas desde el Sol
+  }));
   const rSym=rD+20,minSep=15;
   const placed=[];
   plAngs.forEach(p=>{
@@ -741,7 +747,7 @@ function drawLunar(hS,rH,sH,mH,isDia,hMoon,mVis,beta,mRD,mSD){
     ctx.beginPath();ctx.moveTo(cx+r0*Math.cos(p.oa),cy+r0*Math.sin(p.oa));
     ctx.lineTo(cx+r1*Math.cos(p.oa),cy+r1*Math.sin(p.oa));
     ctx.strokeStyle='rgba(210,120,40,0.65)';ctx.lineWidth=1;ctx.lineCap='butt';ctx.stroke();
-    ctx.font='500 15px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='500 17px serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillStyle=dk?'rgba(200,190,160,0.82)':'rgba(90,80,60,0.82)';
     ctx.fillText(p.s,p.x,p.y);
   });
